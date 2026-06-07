@@ -5,53 +5,59 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch:
+  workflow_dispatch: # 允许在 GitHub Actions 页面上手动点击运行
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. 检出 PCL.Neo 的源码
+    # 1. 自动克隆 PCL.Neo 官方仓库的源码（包含所有子模块）
     - name: Clone PCL.Neo Repository
       uses: actions/checkout@v4
       with:
         repository: 'PCL-Community/PCL.Neo'
         ref: 'main'
-        submodules: 'recursive'
+        submodules: 'recursive' # 递归克隆依赖的子模块
 
-    # 2. 安装编译/分析所需的 Linux 图形底层依赖
+    # 2. 安装 Ubuntu 24.04+ 图形与字体底层依赖，确保编译/分析顺利
     - name: Install Libs
       run: |
         sudo apt-get update
         sudo apt-get install -y libfontconfig1 libgl1
 
-    # 3. 配置 .NET 环境
+    # 3. 配置 .NET 8 环境
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
 
-    # 4. 恢复依赖
+    # 4. 还原 NuGet 依赖包
     - name: Restore dependencies
       run: dotnet restore
 
-    # 5. 编译 Linux x64
-    # 注意：这里去掉了 PublishSingleFile=true 
-    # 增加了 IncludeNativeLibrariesForSelfContained=true 确保原生库被正确解压输出
+    # 5. 核心步骤：编译并发布 Linux x64 独立可执行单文件
+    # -p:PublishSingleFile=true -> 开启单文件打包
+    # -p:IncludeNativeLibrariesForSelfContained=true -> 强制把 C++ 编写的 libSkiaSharp.so 也塞进单文件内
     - name: Build and Publish Linux Executable
       run: |
-        dotnet publish ./PCL.Neo/PCL.Neo.csproj -c Release -r linux-x64 --self-contained true -p:IncludeNativeLibrariesForSelfContained=true -o ./publish
+        dotnet publish ./PCL.Neo/PCL.Neo.csproj \
+          -c Release \
+          -r linux-x64 \
+          --self-contained true \
+          -p:PublishSingleFile=true \
+          -p:IncludeNativeLibrariesForSelfContained=true \
+          -o ./publish
 
-    # 6. 打包整个发布文件夹为 zip，防止 Linux 下的权限和符号链接丢失
+    # 6. 将编译产物打包成 zip（防止 GitHub Artifacts 下载后 Linux 权限丢失）
     - name: Compress Release Folder
       run: |
         cd ./publish
         zip -r ../PCL.Neo-Linux.zip ./*
 
-    # 7. 上传压缩包
+    # 7. 上传至 GitHub Actions 的 Artifacts，供你下载
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: PCL.Neo-Linux-Zip
+        name: PCL.Neo-Linux-Package
         path: PCL.Neo-Linux.zip
