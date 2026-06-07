@@ -5,57 +5,54 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch: # 允许在 GitHub Actions 页面上手动点击运行
+  workflow_dispatch:
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. 自动克隆 PCL.Neo 官方仓库的源码（包含所有子模块）
+    # 1. 克隆源码
     - name: Clone PCL.Neo Repository
       uses: actions/checkout@v4
       with:
         repository: 'PCL-Community/PCL.Neo'
         ref: 'main'
-        submodules: 'recursive' # 递归克隆依赖的子模块
+        submodules: 'recursive'
 
-    # 2. 安装 Ubuntu 24.04+ 图形与字体底层依赖，确保编译/分析顺利
+    # 2. 安装图形依赖
     - name: Install Libs
       run: |
         sudo apt-get update
         sudo apt-get install -y libfontconfig1 libgl1
 
-    # 3. 配置 .NET 8 环境
+    # 3. 配置 .NET
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
 
-    # 4. 还原 NuGet 依赖包
+    # 4. 还原 NuGet
     - name: Restore dependencies
       run: dotnet restore
 
-    # 5. 核心步骤：编译并发布 Linux x64 独立可执行单文件
-    # -p:PublishSingleFile=true -> 开启单文件打包
-    # -p:IncludeNativeLibrariesForSelfContained=true -> 强制把 C++ 编写的 libSkiaSharp.so 也塞进单文件内
-    - name: Build and Publish Linux Executable
+    # 5. 【关键改动】文件夹发布
+    # 彻底去掉 PublishSingleFile=true 保证 .so 文件直接平铺在输出目录中
+    - name: Build and Publish Linux (Folder Mode)
       run: |
         dotnet publish ./PCL.Neo/PCL.Neo.csproj \
           -c Release \
           -r linux-x64 \
           --self-contained true \
-          -p:PublishSingleFile=true \
-          -p:IncludeNativeLibrariesForSelfContained=true \
           -o ./publish
 
-    # 6. 将编译产物打包成 zip（防止 GitHub Artifacts 下载后 Linux 权限丢失）
+    # 6. 打包整个文件夹
     - name: Compress Release Folder
       run: |
         cd ./publish
         zip -r ../PCL.Neo-Linux.zip ./*
 
-    # 7. 上传至 GitHub Actions 的 Artifacts，供你下载
+    # 7. 上传
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
