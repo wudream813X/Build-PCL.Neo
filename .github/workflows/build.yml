@@ -5,28 +5,28 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch: # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. 检出 PCL.Neo 的源码（通过指定 repository）
+    # 1. 检出 PCL.Neo 的源码
     - name: Clone PCL.Neo Repository
       uses: actions/checkout@v4
       with:
-        repository: 'PCL-Community/PCL.Neo' # 目标仓库的 GitHub 路径
-        ref: 'main'                         # 要编译的分支，可根据需要改为其他分支
-        submodules: 'recursive'             # 递归克隆子模块（非常重要）
+        repository: 'PCL-Community/PCL.Neo'
+        ref: 'main'
+        submodules: 'recursive'
 
-    # 2. 安装 Linux 编译可能需要的依赖（Avalonia/SkiaSharp 在 Linux 下可能需要一些底层库）
+    # 2. 安装编译/分析所需的 Linux 图形底层依赖
     - name: Install Libs
       run: |
         sudo apt-get update
         sudo apt-get install -y libfontconfig1 libgl1
 
-    # 3. 配置 .NET 8 环境
+    # 3. 配置 .NET 环境
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
@@ -36,14 +36,22 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
 
-    # 5. 编译 Linux x64 独立可执行文件
+    # 5. 编译 Linux x64
+    # 注意：这里去掉了 PublishSingleFile=true 
+    # 增加了 IncludeNativeLibrariesForSelfContained=true 确保原生库被正确解压输出
     - name: Build and Publish Linux Executable
       run: |
         dotnet publish ./PCL.Neo/PCL.Neo.csproj -c Release -r linux-x64 --self-contained true -p:IncludeNativeLibrariesForSelfContained=true -o ./publish
 
-    # 6. 上传编译好的文件
+    # 6. 打包整个发布文件夹为 zip，防止 Linux 下的权限和符号链接丢失
+    - name: Compress Release Folder
+      run: |
+        cd ./publish
+        zip -r ../PCL.Neo-Linux.zip ./*
+
+    # 7. 上传压缩包
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: PCL.Neo-Linux-Artifact
-        path: ./publish/
+        name: PCL.Neo-Linux-Zip
+        path: PCL.Neo-Linux.zip
