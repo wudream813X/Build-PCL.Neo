@@ -20,24 +20,29 @@ jobs:
         ref: 'main'
         submodules: 'recursive'
 
-    # 2. 安装图形依赖
+    # 2. 安装底层图形库依赖
     - name: Install Libs
       run: |
         sudo apt-get update
         sudo apt-get install -y libfontconfig1 libgl1
 
-    # 3. 配置 .NET
+    # 3. 配置 .NET 环境
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
 
-    # 4. 还原 NuGet
+    # 4. 【核心改动】强行向主项目中注入 Linux 版本的 Skia 原生运行时包
+    # 这样 .NET 在发布 linux-x64 时才会真正去下载并提取出 libSkiaSharp.so
+    - name: Add Linux Native Assets Package
+      run: |
+        dotnet add ./PCL.Neo/PCL.Neo.csproj package SkiaSharp.NativeAssets.Linux
+
+    # 5. 还原 NuGet 依赖
     - name: Restore dependencies
       run: dotnet restore
 
-    # 5. 【关键改动】文件夹发布
-    # 彻底去掉 PublishSingleFile=true 保证 .so 文件直接平铺在输出目录中
+    # 6. 执行文件夹发布
     - name: Build and Publish Linux (Folder Mode)
       run: |
         dotnet publish ./PCL.Neo/PCL.Neo.csproj \
@@ -46,13 +51,13 @@ jobs:
           --self-contained true \
           -o ./publish
 
-    # 6. 打包整个文件夹
+    # 7. 打包整个文件夹
     - name: Compress Release Folder
       run: |
         cd ./publish
         zip -r ../PCL.Neo-Linux.zip ./*
 
-    # 7. 上传
+    # 8. 上传
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
