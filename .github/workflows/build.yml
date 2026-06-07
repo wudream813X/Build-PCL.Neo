@@ -5,11 +5,15 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch:
+  workflow_dispatch: # 允许手动点击运行
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+
+    # 赋予该任务写入 Release 的权限
+    permissions:
+      contents: write
 
     steps:
     # 1. 克隆源码
@@ -17,7 +21,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: 'PCL-Community/PCL.Neo'
-        ref: 'main'
+        ref: 'release'
         submodules: 'recursive'
 
     # 2. 安装底层图形库依赖
@@ -32,7 +36,7 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    # 4. 【精准修复】注入与主项目 2.88.9 完美配对的 Linux 原生运行时
+    # 4. 注入与主项目 2.88.9 完美配对的 Linux 原生运行时
     - name: Add Matching Linux Native Assets Package
       run: |
         dotnet add ./PCL.Neo/PCL.Neo.csproj package SkiaSharp.NativeAssets.Linux --version 2.88.9
@@ -56,9 +60,14 @@ jobs:
         cd ./publish
         zip -r ../PCL.Neo-Linux.zip ./*
 
-    # 8. 上传
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
+    # 8. 【核心改动】直接推送到 GitHub Releases
+    - name: Upload to GitHub Release
+      uses: softprops/action-gh-release@v2
       with:
-        name: PCL.Neo-Linux-Package
-        path: PCL.Neo-Linux.zip
+        tag_name: Linux-Build           # Release 的标签名
+        name: PCL.Neo Linux 最新编译产物 # Release 的标题
+        draft: false
+        prerelease: false
+        files: PCL.Neo-Linux.zip        # 要上传的压缩包路径
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 自动调用的临时权限 Token
