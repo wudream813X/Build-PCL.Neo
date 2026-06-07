@@ -24,7 +24,7 @@ jobs:
     - name: Install Libs
       run: |
         sudo apt-get update
-        sudo apt-get install -y libfontconfig1 libgl1-mesa-glx
+        sudo apt-get install -y libfontconfig1 libgl1
 
     # 3. 配置 .NET 8 环境
     - name: Setup .NET
