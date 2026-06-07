@@ -32,11 +32,10 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    # 4. 【核心改动】强行向主项目中注入 Linux 版本的 Skia 原生运行时包
-    # 这样 .NET 在发布 linux-x64 时才会真正去下载并提取出 libSkiaSharp.so
-    - name: Add Linux Native Assets Package
+    # 4. 【关键修正】强行注入与源码匹配的旧版 88.1.3 Linux 运行时包
+    - name: Add Matching Linux Native Assets Package
       run: |
-        dotnet add ./PCL.Neo/PCL.Neo.csproj package SkiaSharp.NativeAssets.Linux
+        dotnet add ./PCL.Neo/PCL.Neo.csproj package SkiaSharp.NativeAssets.Linux --version 88.1.3
 
     # 5. 还原 NuGet 依赖
     - name: Restore dependencies
